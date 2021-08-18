@@ -242,15 +242,14 @@ class bn_keras(tf.keras.layers.Layer):
  ########################################################################################################
 
 
-class customBatchLayerNormalization(tf.keras.layers.Layer):
-        
+class customBatchLayerNormalLayer(tf.keras.layers.Layer):
     """
     This layer implements new equation for normalizing features  
 
     """
 
     def __init__(self, **kwargs):
-        super(customBatchLayerNormalization, self).__init__(**kwargs)
+        super(customBatchLayerNormalLayer, self).__init__(**kwargs)
         self.gamma1 = None
         self.gamma2 = None
         self.beta1 = None
@@ -294,7 +293,7 @@ class customBatchLayerNormalization(tf.keras.layers.Layer):
 
         self.offset = tf.Variable(0.001, dtype = 'float32', trainable=False)
 
-        super(customBatchLayerNormalization, self).build(input_shape)
+        super(customBatchLayerNormalLayer, self).build(input_shape)
         
     def bn_training(self, inputs):
         
@@ -334,7 +333,7 @@ class customBatchLayerNormalization(tf.keras.layers.Layer):
     
 ########################################################################################################
 
-class comb_cBNpaper_cBLN(tf.keras.layers.Layer):
+class comb_cBNpaper_cBLNLayer(tf.keras.layers.Layer):
     
     """
     This layer implements a combined appraoch of the customBatchLayerNormalization (custom Batch and Layer  Normalization) and
@@ -345,7 +344,7 @@ class comb_cBNpaper_cBLN(tf.keras.layers.Layer):
     
     def __init__(self, stateful, **kwargs):
         
-        super(comb_cBNpaper_cBLN, self).__init__(**kwargs)       
+        super(comb_cBNpaper_cBLNLayer, self).__init__(**kwargs)       
         self.stateful = stateful
 
     def build(self, input_shape):
@@ -458,14 +457,14 @@ class comb_cBNpaper_cBLN(tf.keras.layers.Layer):
 
     def get_config(self):
         
-        config = super(comb_cBNpaper_cBLN, self).get_config()
+        config = super(comb_cBNpaper_cBLNLayer, self).get_config()
         config.update({'stateful': self.stateful})
         
         return config
         
 ######################################################################################################     
 
-class comb_cBNpaper_cBLN_chMean(tf.keras.layers.Layer):
+class comb_cBNpaper_cBLNLayer_chMean(tf.keras.layers.Layer):
     
     """
     This layer implements a combined appraoch of the customBatchLayerNormalization (custom Batch and Layer  Normalization) and
@@ -476,7 +475,7 @@ class comb_cBNpaper_cBLN_chMean(tf.keras.layers.Layer):
     
     def __init__(self, stateful, batch_size, **kwargs):
         
-        super(comb_cBNpaper_cBLN_chMean, self).__init__(**kwargs)
+        super(comb_cBNpaper_cBLNLayer_chMean, self).__init__(**kwargs)
         self.stateful = stateful
         self.batch_size = batch_size
 
@@ -618,7 +617,7 @@ class comb_cBNpaper_cBLN_chMean(tf.keras.layers.Layer):
 
     def get_config(self):
         
-        config = super(comb_cBNpaper_cBLN_chMean, self).get_config()
+        config = super(comb_cBNpaper_cBLNLayer_chMean, self).get_config()
         config.update({'stateful': self.stateful})
         
         return config

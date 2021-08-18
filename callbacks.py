@@ -99,21 +99,21 @@ class bn_keras_callbck(tf.keras.callbacks.Callback):
         self.model.reset_states()
 
 ######################################################################################################################
-class custom_BLNormalization_callback(tf.keras.callbacks.Callback):
+class custom_BLNLayer_callback(tf.keras.callbacks.Callback):
     """
     nothing to do
     """
     
     def __init__(self, **kwargs):
         
-        super(custom_BLNormalization_callback, self).__init__(**kwargs)
+        super(custom_BLNLayer_callback, self).__init__(**kwargs)
             
     def on_epoch_begin(self, epoch, logs = None):
         print(epoch)
     
  ######################################################################################################################
 
-class comb_cBNpaper_cBLN_callback(tf.keras.callbacks.Callback):
+class comb_cBNpaper_cBLNLayer_callback(tf.keras.callbacks.Callback):
     
     """
     This callback is a callback for the combination of the custom_BLNormalization (custom Batch and Layer  Normalization) and
@@ -124,7 +124,7 @@ class comb_cBNpaper_cBLN_callback(tf.keras.callbacks.Callback):
     
     def __init__(self, batchsize, **kwargs):
         
-        super(comb_cBNpaper_cBLN_callback, self).__init__(**kwargs)
+        super(comb_cBNpaper_cBLNLayer_callback, self).__init__(**kwargs)
         
         self.batchsize = batchsize                
         self.batchcount = tf.Variable(0, dtype = tf.int32, trainable=False)
@@ -136,7 +136,7 @@ class comb_cBNpaper_cBLN_callback(tf.keras.callbacks.Callback):
         the mm/mv.        
         """
         for layer in self.model.layers:
-            if layer.__class__.__name__ == 'comb_cBNpaper_cBLN':
+            if layer.__class__.__name__ == 'comb_cBNpaper_cBLNLayer':
                 layer.batchsize.assign(self.batchsize)      
 
     def on_train_batch_end(self, batch, logs=None):
@@ -157,7 +157,7 @@ class comb_cBNpaper_cBLN_callback(tf.keras.callbacks.Callback):
         """
         
         for layer in self.model.layers:
-            if layer.__class__.__name__ == 'comb_cBNpaper_cBLN':
+            if layer.__class__.__name__ == 'comb_cBNpaper_cBLNLayer':
                 layer.batch_count.assign(self.model.history.params['steps'])
 
         return None
@@ -192,7 +192,7 @@ class comb_cBNpaper_cBLN_callback(tf.keras.callbacks.Callback):
 
 
 ######################################################################################################################
-class comb_cBNpaper_cBLN_chMean_callback(tf.keras.callbacks.Callback):
+class comb_cBNpaper_cBLNLayer_chMean_callback(tf.keras.callbacks.Callback):
     
     """
     
@@ -205,7 +205,7 @@ class comb_cBNpaper_cBLN_chMean_callback(tf.keras.callbacks.Callback):
     
     def __init__(self, batchsize, **kwargs):
         
-        super(comb_cBNpaper_cBLN_chMean_callback, self).__init__(**kwargs)
+        super(comb_cBNpaper_cBLNLayer_chMean_callback, self).__init__(**kwargs)
         
         self.batchsize = batchsize                
         self.batchcount = tf.Variable(0, dtype = tf.int32, trainable=False)
@@ -217,7 +217,7 @@ class comb_cBNpaper_cBLN_chMean_callback(tf.keras.callbacks.Callback):
         the mm/mv.        
         """
         for layer in self.model.layers:
-            if layer.__class__.__name__ == 'comb_cBNpaper_cBLN_chMean':
+            if layer.__class__.__name__ == 'comb_cBNpaper_cBLNLayer_chMean':
                 layer.batchsize.assign(self.batchsize)      
 
     def on_train_batch_end(self, batch, logs=None):
@@ -238,7 +238,7 @@ class comb_cBNpaper_cBLN_chMean_callback(tf.keras.callbacks.Callback):
         """
         
         for layer in self.model.layers:
-            if layer.__class__.__name__ == 'comb_cBNpaper_cBLN_chMean':
+            if layer.__class__.__name__ == 'comb_cBNpaper_cBLNLayer_chMean':
                 layer.batch_count.assign(self.model.history.params['steps'])
 
         return None
@@ -271,6 +271,19 @@ class comb_cBNpaper_cBLN_chMean_callback(tf.keras.callbacks.Callback):
         
         self.model.reset_states()       
 
+
+######################################################################################################################
+
+class ln_keras_callbck(tf.keras.callbacks.Callback):
+    """
+    nothing to do
+    """
+    def __init__(self, **kwargs):
+        
+        super(ln_keras_callbck, self).__init__(**kwargs)
+            
+    def on_epoch_begin(self, epoch, logs = None):
+        print(epoch)
 
 ######################################################################################################################
 
