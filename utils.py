@@ -8,6 +8,12 @@ from sklearn.utils import shuffle
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pickle
+
+
+def reset_random_seeds(random_seed = 100):
+    os.environ['PYTHONHASHSEED']=str(random_seed)
+    tf.random.set_seed(random_seed)
 
 
 def check_balance(y_train, y_test):
@@ -67,15 +73,17 @@ def creating_train_val_test_datasets(x_train_scaled, y_onehot_train,
     valid_dataset = tf.data.Dataset.from_tensor_slices((x_valid_scaled, y_onehot_valid))
     
     
-    train_dataset = train_dataset.shuffle(buffer_size=buffersize, seed=random_seed, reshuffle_each_iteration=True)
-    train_dataset = train_dataset.batch(minibatch, drop_remainder = True).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    train_dataset = train_dataset.shuffle(buffer_size=buffersize, seed=random_seed, reshuffle_each_iteration=False)
+    train_dataset = train_dataset.batch(minibatch,
+                                        drop_remainder = True).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     
     
     valid_dataset = valid_dataset.shuffle(buffer_size=buffersize, seed=random_seed, reshuffle_each_iteration=False)
-    valid_dataset = valid_dataset.batch(batch_size=minibatch).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    valid_dataset = valid_dataset.batch(batch_size=minibatch,
+                                         drop_remainder=True).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     
     
-    test_dataset = test_dataset.shuffle(buffer_size=buffersize, seed=random_seed,reshuffle_each_iteration=False)
+    test_dataset = test_dataset.shuffle(buffer_size=buffersize, seed=random_seed, reshuffle_each_iteration=False)
     test_dataset =test_dataset.batch(batch_size=minibatch, 
                                      drop_remainder=True).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
     
@@ -100,3 +108,67 @@ def creat_datasets(x_train, y_train, x_test, y_test, number_of_sampels = 5000,
                                                                                   random_seed=random_seed)
     
     return train_dataset, valid_dataset, test_dataset
+
+def reset_graph():
+    tf.keras.backend.clear_session()
+    print('session is clear')
+
+    
+def read_pick_file(filename = "sorted_evaluation.pkl"):
+    file = open(filename, "rb")
+    output = pickle.load(file)
+    return output
+
+def grid_serach(model_func, callback, train_dataset, valid_dataset, test_dataset,
+                epochs, sort=True, filename = "sorted_evaluation.pkl", ):
+    
+        
+    b_mm = [True,False]
+    b_mv = [True,False]
+    f_mm = [True,False]
+    f_mv = [True,False]
+    
+    evaluation = {}
+    for bmm in b_mm:
+        for bmv in b_mv:
+            for fmm in f_mm:
+                for fmv in f_mv:
+                    
+                    model_custom_bln_layer = model_func(inputshape = (784,), units1 = 100, units2 =100, units3=100,
+                         classes=10, random_seed=100, batch_size= 60, b_mm = bmm, b_mv=bmv, f_mm = fmm, f_mv=fmv)
+
+                    # Callback for resetting moving mean and variances at the end of each epoch
+                    custom_bln_layer_cb = callback()
+
+                    model_custom_bln_layer.compile(optimizer = tf.keras.optimizers.Adam(learning_rate=0.001),
+                                   loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+                                   metrics = [tf.keras.metrics.CategoricalAccuracy()])
+
+                    model_custom_bln_layer_history =  model_custom_bln_layer.fit(train_dataset.take(400),
+                                                                                 epochs=epochs, verbose=1,
+                                                                                 callbacks=[custom_bln_layer_cb],
+                                                                                 validation_data=valid_dataset.take(50),
+                                                                                 shuffle=True)
+                    
+                    name = 'Bmm_' + str(bmm) + ' Bmv_' + str(bmv) + ' Fmm_' + str(fmm) + ' Fmv_' + str(fmv)
+                    evaluation[ name ] = model_custom_bln_layer.evaluate(test_dataset)
+                    print(evaluation)
+                    
+                    reset_graph()
+                    del model_custom_bln_layer,  custom_bln_layer_cb, model_custom_bln_layer_history, name
+                    
+    #reset_graph()               
+
+    if sort:
+        evaluation = sorted(evaluation.items(), key=lambda x:(x[1][0], x[1][1]))
+        
+    if filename != None:
+        file = open(filename, "wb")
+        pickle.dump(evaluation, file)
+        file.close()
+         
+    return  evaluation         
+                
+
+
+

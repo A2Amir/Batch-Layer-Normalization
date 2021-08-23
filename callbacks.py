@@ -15,26 +15,12 @@ class custombn_paper_callback(tf.keras.callbacks.Callback):
     This callback resets the moving mean and variances at the end of each epoch.
     """
     
-    def __init__(self, batchsize, **kwargs):
+    def __init__(self, **kwargs):
         
         super(custombn_paper_callback, self).__init__(**kwargs)
                 
-        self.batchsize = batchsize
         self.batchcount = tf.Variable(0, dtype = tf.int32, trainable=False)
         
-        
-    def on_train_begin(self, logs =None):
-        """
-        At the beginning of the training, the batchsize is assigned to
-        the batchsize variables of the bn layers for correct calc. of 
-        the mm/mv.        
-        """
-        for layer in self.model.layers:
-            if layer.__class__.__name__ == 'custombn_paper':
-                layer.batchsize.assign(self.batchsize)      
-        
-    
-    
     def on_train_batch_end(self, batch, logs=None):
         """
         This function in combination with functions below
@@ -55,6 +41,7 @@ class custombn_paper_callback(tf.keras.callbacks.Callback):
         for layer in self.model.layers:
             if layer.__class__.__name__ == 'custombn_paper':
                 layer.batch_count.assign(self.model.history.params['steps'])
+                
 
         return None
         
@@ -98,46 +85,18 @@ class bn_keras_callbck(tf.keras.callbacks.Callback):
     def on_epoch_begin(self, epoch, logs = None):      
         self.model.reset_states()
 
+
 ######################################################################################################################
 class custom_BLNLayer_callback(tf.keras.callbacks.Callback):
+    
     """
-    nothing to do
+    This callback resets the moving mean and variances at the end of each epoch.
     """
     
     def __init__(self, **kwargs):
         
         super(custom_BLNLayer_callback, self).__init__(**kwargs)
-            
-    def on_epoch_begin(self, epoch, logs = None):
-        print(epoch)
-    
- ######################################################################################################################
-
-class comb_cBNpaper_cBLNLayer_callback(tf.keras.callbacks.Callback):
-    
-    """
-    This callback is a callback for the combination of the custom_BLNormalization (custom Batch and Layer  Normalization) and
-    custombn_paper (custom Batch Normalization Paper) approches.
-    
-    This callback resets the moving mean and variances at the end of each epoch.
-    """
-    
-    def __init__(self, batchsize, **kwargs):
-        
-        super(comb_cBNpaper_cBLNLayer_callback, self).__init__(**kwargs)
-        
-        self.batchsize = batchsize                
         self.batchcount = tf.Variable(0, dtype = tf.int32, trainable=False)
-
-    def on_train_begin(self, logs =None):
-        """
-        At the beginning of the training, the batchsize is assigned to
-        the batchsize variables of the bn layers for correct calc. of 
-        the mm/mv.        
-        """
-        for layer in self.model.layers:
-            if layer.__class__.__name__ == 'comb_cBNpaper_cBLNLayer':
-                layer.batchsize.assign(self.batchsize)      
 
     def on_train_batch_end(self, batch, logs=None):
         """
@@ -157,7 +116,7 @@ class comb_cBNpaper_cBLNLayer_callback(tf.keras.callbacks.Callback):
         """
         
         for layer in self.model.layers:
-            if layer.__class__.__name__ == 'comb_cBNpaper_cBLNLayer':
+            if layer.__class__.__name__ == 'custom_BLN_Layer':
                 layer.batch_count.assign(self.model.history.params['steps'])
 
         return None
@@ -187,88 +146,6 @@ class comb_cBNpaper_cBLNLayer_callback(tf.keras.callbacks.Callback):
         """
         At the beginning of every epoch, the mm/mv need to be reset to zero.
         """
-        
-        self.model.reset_states()       
-
-
-######################################################################################################################
-class comb_cBNpaper_cBLNLayer_chMean_callback(tf.keras.callbacks.Callback):
-    
-    """
-    
-    This callback is a callback for the combination of the custom_BLNormalization (custom Batch and Layer  Normalization) and
-    custombn_paper (custom Batch Normalization Paper) approches plus adding the channle mean and variance.
-    
-    
-    This callback resets the moving mean and variances at the end of each epoch.
-    """
-    
-    def __init__(self, batchsize, **kwargs):
-        
-        super(comb_cBNpaper_cBLNLayer_chMean_callback, self).__init__(**kwargs)
-        
-        self.batchsize = batchsize                
-        self.batchcount = tf.Variable(0, dtype = tf.int32, trainable=False)
-
-    def on_train_begin(self, logs =None):
-        """
-        At the beginning of the training, the batchsize is assigned to
-        the batchsize variables of the bn layers for correct calc. of 
-        the mm/mv.        
-        """
-        for layer in self.model.layers:
-            if layer.__class__.__name__ == 'comb_cBNpaper_cBLNLayer_chMean':
-                layer.batchsize.assign(self.batchsize)      
-
-    def on_train_batch_end(self, batch, logs=None):
-        """
-        This function in combination with functions below
-        is used to pass the total number of batches in the training data
-        for the calculation of mm/mv.
-        """
-        self.batchcount.assign(batch)
-        tf.cond(tf.equal(self.batchcount,1), self.at_batch_one, self.at_batch_not_one)     
-        
-    def at_batch_one(self):
-        """
-        When the first batch of the training data has been processed 
-        this function retrieves the total batches(steps) and updates
-        the corresponding variable in the batch norm layers for 
-        calculating moving mean and moving var.                  
-        """
-        
-        for layer in self.model.layers:
-            if layer.__class__.__name__ == 'comb_cBNpaper_cBLNLayer_chMean':
-                layer.batch_count.assign(self.model.history.params['steps'])
-
-        return None
-        
-    def at_batch_not_one(self):
-        tf.cond(tf.equal(self.batchcount, self.model.history.params['steps']-1), self.at_last_batch, self.at_any_batch)
-    
-    def at_last_batch(self):
-        """
-        This layer updates mm/mv after the last batch of the 
-        training data has been processed.        
-        """
-        for layer in self.model.layers:
-            if hasattr(layer, 'update_mm_mv'):
-                layer.update_mm_mv()
-        
-        return None
-    
-    def at_any_batch(self):
-        """
-        Nothing to do any other batch number
-        """
-        return None
-
-       
-    def on_epoch_begin(self, epoch, logs = None):
-        """
-        At the beginning of every epoch, the mm/mv need to be reset to zero.
-        """
-        
         self.model.reset_states()       
 
 
