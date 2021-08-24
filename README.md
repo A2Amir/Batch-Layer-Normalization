@@ -1,2 +1,2 @@
-# Batch Layer Normalization
+# New Batch Layer Normalization
  
