@@ -338,11 +338,9 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
         self.moving_Fvar.assign_add(feature_var)
         
    
-        output1 =   (((self.gamma1/ feature_std) * inputs) - ((self.gamma1/ feature_std) * (feature_mean + batch_mean)))+ self.beta1
-        output2 =   (((self.gamma1/ batch_std) * inputs) - ((self.gamma1/batch_std) * (feature_mean + batch_mean)))+ self.beta1     
+        output1 =   (((self.gamma1/ feature_std) * inputs) - ((self.gamma1/ feature_std) * (feature_mean )))+ self.beta1 #feature_mean + batch_mean
+        output2 =   (((self.gamma1/ batch_std) * inputs) - ((self.gamma1/batch_std) * ( batch_mean)))+ self.beta1     
        
-        #output1 = tf.divide(tf.subtract(inputs, batch_mean),batch_std) 
-        #output2 = tf.divide(tf.subtract(inputs, feature_mean),feature_std) 
         
         #output1 = tf.add(tf.multiply(tf.divide(tf.subtract(inputs, batch_mean),batch_std) , self.gamma1), self.beta1)
         #output2 = tf.add(tf.multiply(tf.divide(tf.subtract(inputs, feature_mean),feature_std) , self.gamma1), self.beta1)
@@ -421,12 +419,10 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
             feature_mean, _ = tf.nn.moments(inputs, axes = [-1], keepdims=True)
             feature_std = tf.math.sqrt(tf.add(self.moving_Fvar, self.offset))
 
-        output1 =   (((self.gamma1/  feature_std ) * inputs)) - ((self.gamma1/  feature_std) *  (feature_mean + batch_mean))+ self.beta1
-        output2 =   (((self.gamma1/ batch_std  ) * inputs)) - ((self.gamma1/ batch_std) * (feature_mean + batch_mean) )+ self.beta1
+        output1 =   (((self.gamma1/  feature_std ) * inputs)) - ((self.gamma1/  feature_std) *  (feature_mean ))+ self.beta1
+        output2 =   (((self.gamma1/ batch_std  ) * inputs)) - ((self.gamma1/ batch_std) * ( batch_mean) )+ self.beta1
         
-        #output1 = tf.divide(tf.subtract(inputs, batch_mean), batch_std) 
-        #output2 = tf.divide(tf.subtract(inputs, feature_mean), feature_std) 
-        
+
         #output1 = tf.add(tf.multiply(tf.divide(tf.subtract(inputs, batch_mean),batch_std) , self.gamma1), self.beta1)
         #output2 = tf.add(tf.multiply(tf.divide(tf.subtract(inputs, feature_mean),feature_std) , self.gamma1), self.beta1)
         
