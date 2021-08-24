@@ -27,7 +27,7 @@ def check_balance(y_train, y_test):
     for cl, nu in zip(c,n):
         print('Class {} have {} instances in y_test.'.format(cl,nu))
         
-def visulaize(x_train):
+def visualize(x_train):
     fig, ax = plt.subplots(3,3)
     ax = ax.flatten()
     for i,j in enumerate(ax): 
