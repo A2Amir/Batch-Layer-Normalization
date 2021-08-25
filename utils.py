@@ -34,10 +34,10 @@ def visualize(x_train):
         j.imshow(x_train[i])
         
         
-def preprocess(x_train,y_train, x_test, y_test):
+def preprocess(x_train,y_train, x_test, y_test, num_classes, reshape_to ):
     
-    x_train = x_train.reshape(-1, 28*28)
-    x_test = x_test.reshape(-1, 28*28)
+    x_train = x_train.reshape(-1, reshape_to  )
+    x_test = x_test.reshape(-1, reshape_to )
     
     #Scaling the image data
     stdscaler = StandardScaler()
@@ -48,8 +48,8 @@ def preprocess(x_train,y_train, x_test, y_test):
     x_test_scaled = x_test_scaled.astype(dtype = 'float32', copy=False)
     
     # One-hot encoding of y
-    y_onehot_train = tf.keras.utils.to_categorical(y_train, num_classes=10, dtype='float32')
-    y_onehot_test = tf.keras.utils.to_categorical(y_test, num_classes=10, dtype='float32')
+    y_onehot_train = tf.keras.utils.to_categorical(y_train, num_classes=num_classes, dtype='float32')
+    y_onehot_test = tf.keras.utils.to_categorical(y_test, num_classes=num_classes, dtype='float32')
     
     return x_train_scaled, y_onehot_train, x_test_scaled, y_onehot_test
 
@@ -91,14 +91,23 @@ def creating_train_val_test_datasets(x_train_scaled, y_onehot_train,
 
 
 def creat_datasets(x_train, y_train, x_test, y_test, number_of_sampels = 5000,
-                   random_seed=100, minibatch = 60,  buffersize= 60000):
+                   random_seed=100, minibatch = 60,  buffersize= 60000, num_classes=10,
+                   reshape_to = 28*28 , back_reshape = (28,28)):
     
-    x_train_scaled, y_onehot_train, x_test_scaled, y_onehot_test = preprocess(x_train, y_train, x_test, y_test)
+
+    x_train_scaled, y_onehot_train, x_test_scaled, y_onehot_test = preprocess(x_train, y_train, x_test, y_test,
+                                                                               num_classes, reshape_to)
 
     # Creating validation data
     x_train_scaled, y_onehot_train, x_valid_scaled, y_onehot_valid = creating_val_data(x_train_scaled, y_onehot_train,
                                                                                        number_of_sampels = number_of_sampels,
                                                                                        random_seed=random_seed)
+    if back_reshape!= None:
+        x_train_scaled = x_train_scaled.reshape(back_reshape)
+        x_valid_scaled = x_valid_scaled.reshape(back_reshape)
+        x_test_scaled = x_test_scaled.reshape(back_reshape)
+
+        
     # Creating Datasets
     train_dataset, valid_dataset, test_dataset = creating_train_val_test_datasets(x_train_scaled, y_onehot_train,
                                                                                   x_test_scaled, y_onehot_test,
@@ -119,9 +128,8 @@ def read_pick_file(filename = "sorted_evaluation.pkl"):
     output = pickle.load(file)
     return output
 
-def grid_serach(model_func, callback, train_dataset, valid_dataset, test_dataset, epochs,
-                inputshape = (784,), units1 = 100, units2 =100, units3=100, classes=10,
-                random_seed=100, batch_size= 60, sort=True, filename = "sorted_evaluation.pkl",
+def grid_serach(model_func, test_dataset, sort=True,
+                save_eval_path = "sorted_evaluation.pkl",
                 weights_path ="pretrained_weights.h5",
                ):
     
@@ -136,10 +144,7 @@ def grid_serach(model_func, callback, train_dataset, valid_dataset, test_dataset
         for bmv in b_mv:
             for fmm in f_mm:
                 for fmv in f_mv:
-
-                    model_custom_bln_layer = model_func(inputshape = inputshape, units1 = units1, units2 =units2, units3=units3,
-                                                        classes=classes, random_seed=random_seed, batch_size= batch_size,
-                                                        b_mm = bmm, b_mv=bmv, f_mm = fmm, f_mv=fmv)
+                    model_custom_bln_layer = model_func(b_mm = bmm, b_mv=bmv, f_mm = fmm, f_mv=fmv)
 
                     model_custom_bln_layer.compile(optimizer = tf.keras.optimizers.Adam(learning_rate=0.001),
                                                    loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True),
@@ -159,8 +164,8 @@ def grid_serach(model_func, callback, train_dataset, valid_dataset, test_dataset
     if sort:
         evaluation = sorted(evaluation.items(), key=lambda x:(x[1][0], x[1][1]))
         
-    if filename != None:
-        file = open('./logs/'+filename, "wb")
+    if save_eval_path != None:
+        file = open(save_eval_path, "wb")
         pickle.dump(evaluation, file)
         file.close()
          

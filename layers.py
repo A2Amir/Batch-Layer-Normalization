@@ -72,6 +72,16 @@ class custombn_paper(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         
+        if len(input_shape) == 2:
+            bn_shape = (1, input_shape[1])
+           
+        elif len(input_shape) == 3:
+            bn_shape = (1,input_shape[1], input_shape[2])
+        elif len(input_shape) == 4:
+            bn_shape = (1,input_shape[1], input_shape[2], input_shape[3])
+        else:
+            print('layer shape must be 2D or 3D or 4D')
+        
         
         self.gamma = self.add_weight(name = 'scale', shape = (1, input_shape[-1]), initializer = tf.keras.initializers.ones(),
                                     trainable = True)
@@ -79,11 +89,11 @@ class custombn_paper(tf.keras.layers.Layer):
                                    trainable = True)
         self.offset = tf.Variable(0.001, dtype = 'float32', trainable=False)
         
-        self.moving_mean = self.add_weight(name = 'moving_mean', shape = (1, input_shape[-1]),
+        self.moving_mean = self.add_weight(name = 'moving_mean', shape = bn_shape,
                                            initializer = tf.keras.initializers.Zeros(),
                                           trainable = False)
         
-        self.moving_var =  self.add_weight(name = 'moving_var', shape = (1, input_shape[-1]),
+        self.moving_var =  self.add_weight(name = 'moving_var', shape = bn_shape,
                                            initializer = tf.keras.initializers.Zeros(),
                                           trainable = False)
         
@@ -165,6 +175,17 @@ class bn_keras(tf.keras.layers.Layer):
         
     def build(self, input_shape):
         shape = input_shape[-1:]
+        
+        if len(input_shape) == 2:
+            bn_shape = (1, input_shape[1])
+           
+        elif len(input_shape) == 3:
+            bn_shape = (1,input_shape[1], input_shape[2])
+        elif len(input_shape) == 4:
+            bn_shape = (1,input_shape[1], input_shape[2], input_shape[3])
+        else:
+            print('layer shape must be 2D or 3D or 4D')
+        
 
         
         self.gamma = self.add_weight(name = 'scale', shape =shape,
@@ -180,11 +201,11 @@ class bn_keras(tf.keras.layers.Layer):
         
         self.offset = tf.Variable(0.001, dtype = 'float32', trainable=False)
         
-        self.moving_mean = self.add_weight(name = 'moving_mean', shape = (1, input_shape[-1]),
+        self.moving_mean = self.add_weight(name = 'moving_mean', shape = bn_shape,
                                            initializer = tf.keras.initializers.Zeros(),
                                           trainable = False)
         
-        self.moving_var =  self.add_weight(name = 'moving_var', shape = (1, input_shape[-1]),
+        self.moving_var =  self.add_weight(name = 'moving_var', shape = bn_shape,
                                            initializer = tf.keras.initializers.Zeros(),
                                           trainable = False)
 
@@ -236,7 +257,7 @@ class bn_keras(tf.keras.layers.Layer):
 
 class custom_BLN_Layer(tf.keras.layers.Layer):   
     """
-    This layer implements new equation for normalizing features  
+    This layer implements new equation for normalizing Features  and Batches
 
     """
     
@@ -266,8 +287,11 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
         elif len(input_shape) == 3:
             bn_shape = (1,input_shape[1], input_shape[2])
             feature_shape = (self.batchsize, input_shape[1], 1)
+        elif len(input_shape) == 4:
+            bn_shape = (1,input_shape[1], input_shape[2], input_shape[3])
+            feature_shape = (self.batchsize, input_shape[1],input_shape[2], 1)
         else:
-            print('layer shape must be 2D or 3D')
+            print('layer shape must be 2D or 3D or 4D')
 
         self.gamma1 = self.add_weight(name = 'scale1', shape = shape,
                                      initializer = tf.keras.initializers.ones(),
@@ -338,8 +362,8 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
         self.moving_Fvar.assign_add(feature_var)
         
    
-        output1 =   (((self.gamma1/ feature_std) * inputs) - ((self.gamma1/ feature_std) * (feature_mean )))+ self.beta1 #feature_mean + batch_mean
-        output2 =   (((self.gamma1/ batch_std) * inputs) - ((self.gamma1/batch_std) * ( batch_mean)))+ self.beta1     
+        output1 =   (((self.gamma1/ feature_std) * inputs) - ((self.gamma1/ feature_std) * (feature_mean + batch_mean )))+ self.beta1 #
+        output2 =   (((self.gamma1/ batch_std) * inputs) - ((self.gamma1/batch_std) * ( feature_mean + batch_mean)))+ self.beta1     
        
         
         #output1 = tf.add(tf.multiply(tf.divide(tf.subtract(inputs, batch_mean),batch_std) , self.gamma1), self.beta1)
@@ -419,8 +443,8 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
             feature_mean, _ = tf.nn.moments(inputs, axes = [-1], keepdims=True)
             feature_std = tf.math.sqrt(tf.add(self.moving_Fvar, self.offset))
 
-        output1 =   (((self.gamma1/  feature_std ) * inputs)) - ((self.gamma1/  feature_std) *  (feature_mean ))+ self.beta1
-        output2 =   (((self.gamma1/ batch_std  ) * inputs)) - ((self.gamma1/ batch_std) * ( batch_mean) )+ self.beta1
+        output1 =   (((self.gamma1/  feature_std ) * inputs)) - ((self.gamma1/  feature_std) *  (feature_mean + batch_mean ))+ self.beta1
+        output2 =   (((self.gamma1/ batch_std  ) * inputs)) - ((self.gamma1/ batch_std) * ( feature_mean + batch_mean) )+ self.beta1
         
 
         #output1 = tf.add(tf.multiply(tf.divide(tf.subtract(inputs, batch_mean),batch_std) , self.gamma1), self.beta1)
