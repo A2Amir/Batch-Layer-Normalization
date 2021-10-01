@@ -11,19 +11,15 @@ import os
 import pickle
 
 
-def reset_random_seeds(random_seed = 100):
-    os.environ['PYTHONHASHSEED']=str(random_seed)
-    tf.random.set_seed(random_seed)
-
 
 def check_balance(y_train, y_test):
     
-    c, n =np.unique(y_train, return_counts=True)
+    c, n = np.unique(y_train, return_counts=True)
     for cl, nu in zip(c,n):
         print('Class {} have {} instances in y_train.'.format(cl,nu))
     
     print()
-    c, n =np.unique(y_test, return_counts=True)
+    c, n = np.unique(y_test, return_counts=True)
     for cl, nu in zip(c,n):
         print('Class {} have {} instances in y_test.'.format(cl,nu))
         
@@ -36,8 +32,8 @@ def visualize(x_train):
         
 def preprocess(x_train,y_train, x_test, y_test, num_classes, reshape_to ):
     
-    x_train = x_train.reshape(-1, reshape_to  )
-    x_test = x_test.reshape(-1, reshape_to )
+    x_train = x_train.reshape(-1, reshape_to )
+    x_test = x_test.reshape(-1, reshape_to)
     
     #Scaling the image data
     stdscaler = StandardScaler()
@@ -53,13 +49,13 @@ def preprocess(x_train,y_train, x_test, y_test, num_classes, reshape_to ):
     
     return x_train_scaled, y_onehot_train, x_test_scaled, y_onehot_test
 
-def creating_val_data(x_train_scaled, y_onehot_train, number_of_sampels = 5000, random_seed=100):
+def creating_val_data(x_train_scaled, y_onehot_train, number_valid_sampels = 5000, random_seed=100):
 
     x_train_scaled, y_onehot_train = shuffle(x_train_scaled, y_onehot_train, random_state = random_seed)
-    x_valid_scaled = x_train_scaled[:number_of_sampels]
-    y_onehot_valid =  y_onehot_train[:number_of_sampels]
-    x_train_scaled = x_train_scaled[number_of_sampels:]
-    y_onehot_train =  y_onehot_train[number_of_sampels:]
+    x_valid_scaled = x_train_scaled[:number_valid_sampels]
+    y_onehot_valid =  y_onehot_train[:number_valid_sampels]
+    x_train_scaled = x_train_scaled[number_valid_sampels:]
+    y_onehot_train =  y_onehot_train[number_valid_sampels:]
     
     return x_train_scaled, y_onehot_train, x_valid_scaled, y_onehot_valid
 
@@ -90,7 +86,7 @@ def creating_train_val_test_datasets(x_train_scaled, y_onehot_train,
     return train_dataset, valid_dataset, test_dataset
 
 
-def creat_datasets(x_train, y_train, x_test, y_test, number_of_sampels = 5000,
+def creat_datasets(x_train, y_train, x_test, y_test, number_valid_sampels = 5000,
                    random_seed=100, minibatch = 60,  buffersize= 60000, num_classes=10,
                    reshape_to = 28*28 , back_reshape = (28,28)):
     
@@ -100,7 +96,7 @@ def creat_datasets(x_train, y_train, x_test, y_test, number_of_sampels = 5000,
 
     # Creating validation data
     x_train_scaled, y_onehot_train, x_valid_scaled, y_onehot_valid = creating_val_data(x_train_scaled, y_onehot_train,
-                                                                                       number_of_sampels = number_of_sampels,
+                                                                                       number_valid_sampels = number_valid_sampels,
                                                                                        random_seed=random_seed)
     if back_reshape!= None:
         x_train_scaled = x_train_scaled.reshape(back_reshape)
@@ -128,9 +124,12 @@ def read_pick_file(filename = "sorted_evaluation.pkl"):
     output = pickle.load(file)
     return output
 
-def grid_serach(model_func, test_dataset, sort=True,
+def grid_serach(model_func, test_dataset, 
+                batch_size, sort=True,
                 save_eval_path = "sorted_evaluation.pkl",
                 weights_path ="pretrained_weights.h5",
+                loss =  tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+                metrics = tf.keras.metrics.CategoricalAccuracy(),
                ):
     
     
@@ -144,22 +143,21 @@ def grid_serach(model_func, test_dataset, sort=True,
         for bmv in b_mv:
             for fmm in f_mm:
                 for fmv in f_mv:
-                    model_custom_bln_layer = model_func(b_mm = bmm, b_mv=bmv, f_mm = fmm, f_mv=fmv)
+                    model_bln_layer = model_func(b_mm = bmm, b_mv=bmv, f_mm = fmm, f_mv=fmv, batch_size = batch_size)
 
-                    model_custom_bln_layer.compile(optimizer = tf.keras.optimizers.Adam(learning_rate=0.001),
-                                                   loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True),
-                                                   metrics = [tf.keras.metrics.CategoricalAccuracy()])
+                    model_bln_layer.compile(optimizer = tf.keras.optimizers.Adam(learning_rate=0.001),
+                                                   loss = loss,
+                                                   metrics = [metrics])
                     
-                    model_custom_bln_layer.load_weights(weights_path)
+                    model_bln_layer.load_weights(weights_path)
 
                     name = 'Bmm_' + str(bmm) + ' Bmv_' + str(bmv) + ' Fmm_' + str(fmm) + ' Fmv_' + str(fmv)
-                    evaluation[ name ] = model_custom_bln_layer.evaluate(test_dataset)
+                    evaluation[ name ] = model_bln_layer.evaluate(test_dataset)
                     print(evaluation)
 
                     reset_graph()
-                    del model_custom_bln_layer, name
+                    del model_bln_layer, name
                                    
-    #reset_graph()               
 
     if sort:
         evaluation = sorted(evaluation.items(), key=lambda x:(x[1][0], x[1][1]))

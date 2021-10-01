@@ -3,261 +3,14 @@
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
-from tensorflow.keras.layers import Layer 
-from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras import backend as K
-import numpy as np
-import os
 
 
-
-######################################################################################################################   
-
-class dense_layer(tf.keras.layers.Layer):
-    '''
-    Creating Custom Dense Layer
-    '''
-    def __init__(self, units, random_seed, **kwargs):
-        
-        super(dense_layer, self).__init__(**kwargs)
-        self.units =  units
-        self.random_seed =  random_seed
-        
-    def build(self, input_shape):
-        self.kernel_weights = self.add_weight(name = 'weights', shape = (input_shape[-1], self.units),
-                                              dtype = self.dtype, 
-                                              initializer=tf.keras.initializers.Orthogonal(gain=1, seed=self.random_seed),
-                                              trainable = True)
-        
-        self.bias = self.add_weight(name = 'bias', shape = (self.units,), dtype = self.dtype,
-                                   initializer=tf.keras.initializers.zeros(), trainable = True)
-        
-    def call(self, inputs):
-        
-        return tf.add(tf.matmul(inputs, self.kernel_weights), self.bias)
-    
-    def get_config(self):
-        
-        config = super(dense_layer, self).get_config()
-        config.update({'units': self.units})
-        config.update({'random_seed': self.random_seed})
-        
-        return config
-
-
-######################################################################################################################   
-    
-class custombn_paper(tf.keras.layers.Layer):
-    
-    """
-    bn_paper : https://arxiv.org/abs/1502.03167v3
-    
-    Not implementing momentum as defined in the keras BatchNorm layer
-    
-    Population mean and variance are calculated as defined in the paper
-    
-    This process can only be used when mini-batch size > 1
-    
-    """
-    
-    
-    def __init__(self, stateful, batchsize, **kwargs):
-        
-        super(custombn_paper, self).__init__(**kwargs)
-        
-        self.stateful = stateful
-        self.batch_size = tf.cast(batchsize, 'float32')
-      
-
-    def build(self, input_shape):
-        
-        if len(input_shape) == 2:
-            bn_shape = (1, input_shape[1])
-           
-        elif len(input_shape) == 3:
-            bn_shape = (1,input_shape[1], input_shape[2])
-        elif len(input_shape) == 4:
-            bn_shape = (1,input_shape[1], input_shape[2], input_shape[3])
-        else:
-            print('layer shape must be 2D or 3D or 4D')
-        
-        
-        self.gamma = self.add_weight(name = 'scale', shape = (1, input_shape[-1]), initializer = tf.keras.initializers.ones(),
-                                    trainable = True)
-        self.beta = self.add_weight(name = 'shift', shape = (1,input_shape[-1]), initializer = tf.keras.initializers.zeros(),
-                                   trainable = True)
-        self.offset = tf.Variable(0.001, dtype = 'float32', trainable=False)
-        
-        self.moving_mean = self.add_weight(name = 'moving_mean', shape = bn_shape,
-                                           initializer = tf.keras.initializers.Zeros(),
-                                          trainable = False)
-        
-        self.moving_var =  self.add_weight(name = 'moving_var', shape = bn_shape,
-                                           initializer = tf.keras.initializers.Zeros(),
-                                          trainable = False)
-        
-        self.batch_count = tf.Variable(0, dtype = 'float32', name = 'batchcount', trainable=False)
-    
-        
-        self.init_mm = self.moving_mean.read_value()
-        self.init_mv = self.moving_var.read_value()
-
-
-    def bn_training(self, inputs, axes = [0]):
-
-        self.batch_mean, self.batch_var = tf.nn.moments(inputs, axes = axes, keepdims=True)
-        
-        self.moving_mean.assign_add(self.batch_mean)
-        self.moving_var.assign_add(self.batch_var)
-
-        return tf.add(tf.multiply(tf.divide(tf.subtract(inputs, self.batch_mean), 
-                                     tf.math.sqrt(tf.add(self.batch_var, self.offset))), self.gamma), self.beta)
-    
-
-    
-    def update_mm_mv(self):
-        """
-        Updating mm and mv at the end of epoch
-        """        
-        self.moving_mean.assign(tf.cond(tf.greater(self.batch_count,0), 
-                                        lambda: tf.divide(self.moving_mean,self.batch_count),
-                                        lambda: self.moving_mean, name='update_mm'))
-        
-        self.moving_var.assign(tf.cond(tf.greater(self.batch_count,0), 
-                                       lambda: tf.multiply(self.moving_var,
-                                                           tf.divide(self.batch_size,
-                                                                     tf.multiply(tf.subtract(self.batch_size,1), 
-                                                                                 self.batch_count))),
-                                       
-                                       lambda: self.moving_var, name='update_mv'))
-        
-    
-    def bn_inference(self, inputs):
-        
-        return tf.add(tf.multiply(tf.divide(tf.subtract(inputs, self.moving_mean), 
-                                     tf.math.sqrt(tf.add(self.moving_var, self.offset))), self.gamma), self.beta)
-                
-    def reset_states(self):
-        self.moving_mean.assign(self.init_mm)
-        self.moving_var.assign(self.init_mv)
-
-    def call(self, inputs, training):       
-        
-        return tf.cond(tf.equal(training, True, name='train_or_eval'),
-                       lambda: self.bn_training(inputs), lambda: self.bn_inference(inputs),
-                      name = 'call_func') 
-
-    def get_config(self):
-        
-        config = super(custombn_paper, self).get_config()
-        config.update({'stateful': self.stateful})
-        
-        return config
-
-######################################################################################################################
-class bn_keras(tf.keras.layers.Layer):
-    
-    """
-    Implementing momentum as defined in the keras BatchNorm layer to calculate
-    population mean and variance 
-    
-    """
-    
-    
-    def __init__(self, momentum, stateful, **kwargs):
-        
-        super(bn_keras, self).__init__(**kwargs)
-        
-        self.momentum = momentum
-        self.stateful = stateful
-
-        
-    def build(self, input_shape):
-        shape = input_shape[-1:]
-        
-        if len(input_shape) == 2:
-            bn_shape = (1, input_shape[1])
-           
-        elif len(input_shape) == 3:
-            bn_shape = (1,input_shape[1], input_shape[2])
-        elif len(input_shape) == 4:
-            bn_shape = (1,input_shape[1], input_shape[2], input_shape[3])
-        else:
-            print('layer shape must be 2D or 3D or 4D')
-        
-
-        
-        self.gamma = self.add_weight(name = 'scale', shape =shape,
-                                     initializer = tf.keras.initializers.ones(),
-                                     #constraint = lambda t:tf.clip_by_value(t,-1,1),
-                                     trainable = True)
-
-        
-        self.beta = self.add_weight(name = 'shift', shape = shape,
-                                    initializer = tf.keras.initializers.zeros(),
-                                    trainable = True)
-        
-        
-        self.offset = tf.Variable(0.001, dtype = 'float32', trainable=False)
-        
-        self.moving_mean = self.add_weight(name = 'moving_mean', shape = bn_shape,
-                                           initializer = tf.keras.initializers.Zeros(),
-                                          trainable = False)
-        
-        self.moving_var =  self.add_weight(name = 'moving_var', shape = bn_shape,
-                                           initializer = tf.keras.initializers.Zeros(),
-                                          trainable = False)
-
-        self.init_mm = self.moving_mean.read_value()
-        self.init_mv = self.moving_var.read_value()
-        
-
-    def bn_training(self, inputs, axes = [0]):
-        
-        
-        self.batch_mean, self.batch_var = tf.nn.moments(inputs, axes = axes, keepdims=True)
-        self.batch_std = K.sqrt(self.batch_var + self.offset)
-
-        # as implemented in tensorflow        
-        self.moving_mean.assign((1-self.momentum)*self.moving_mean + self.momentum*self.batch_mean)
-        self.moving_var.assign((1-self.momentum)*self.moving_var + self.momentum*self.batch_var)
-        
-        
-        return tf.add(tf.multiply(tf.divide(tf.subtract(inputs, self.batch_mean), 
-                                     tf.math.sqrt(tf.add(self.batch_var, self.offset))), self.gamma), self.beta)
-
-
-    
-    def bn_inference(self, inputs):        
-        
-
-        return tf.add(tf.multiply(tf.divide(tf.subtract(inputs, self.moving_mean), 
-                                     tf.math.sqrt(tf.add(self.moving_var, self.offset))), self.gamma), self.beta)
-        
-        
-    def reset_states(self):
-        
-        self.moving_mean.assign(self.init_mm)
-        self.moving_var.assign(self.init_mv)
-        
-        
-    def call(self, inputs, training):     
-        
-        return tf.cond(tf.equal(training, True),lambda: self.bn_training(inputs), lambda: self.bn_inference(inputs))       
-    
-    def get_config(self):
-        
-        config = super(bn_keras, self).get_config()
-        config.update({'momentum': self.momentum})
-        
-        return config
-            
  ########################################################################################################
 
-class custom_BLN_Layer(tf.keras.layers.Layer):   
+class bln_layer(tf.keras.layers.Layer):   
     """
-    This layer implements new equation for normalizing Features  and Batches
+    developing the new normalization method termed Batch Layer normalization, a novel normalization method to speed the convergence for various neural network models. Unlike batch and layer normalization methods that use the distribution of summed inputs to a neuron for calculating a mean and variance over a mini-batch and directly in a layer, respectively, the proposed method estimates the normalization statistics from the summed inputs to the neurons within a hidden layer via a mini-batch and directly in a layer together.
 
     """
     
@@ -266,7 +19,7 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
                  feature_moving_mean=False, feature_moving_var=False,
                  **kwargs):
         
-        super(custom_BLN_Layer, self).__init__(**kwargs)
+        super(bln_layer, self).__init__(**kwargs)
         self.stateful = stateful
         self.batchsize = batchsize
         self.batch_size = tf.cast(self.batchsize, 'float32')
@@ -280,6 +33,8 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
     def build(self, input_shape):
         
         shape = input_shape[-1:]
+        self.dk = tf.cast(input_shape[-1], 'float32')
+        
         if len(input_shape) == 2:
             bn_shape = (1, input_shape[1])
             feature_shape = (self.batchsize,1)
@@ -287,9 +42,11 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
         elif len(input_shape) == 3:
             bn_shape = (1,input_shape[1], input_shape[2])
             feature_shape = (self.batchsize, input_shape[1], 1)
+            
         elif len(input_shape) == 4:
             bn_shape = (1,input_shape[1], input_shape[2], input_shape[3])
             feature_shape = (self.batchsize, input_shape[1],input_shape[2], 1)
+           
         else:
             print('layer shape must be 2D or 3D or 4D')
 
@@ -301,27 +58,9 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
                                     initializer = tf.keras.initializers.zeros(),
                                    trainable = True)
 
-        '''self.gamma2 = self.add_weight(name = 'scale2', shape = shape,
-                                     initializer = tf.keras.initializers.ones(),
-                                    trainable = True)
-        
-        self.beta2 = self.add_weight(name = 'shift2', shape = shape,
-                                    initializer = tf.keras.initializers.zeros(),
-                                   trainable = True)
-       '''
-        
-        self.gamma3 = self.add_weight(name = 'scale3', shape = shape,
-                                     initializer = tf.keras.initializers.ones(),
-                                    trainable = True)
-        
-        self.beta3 = self.add_weight(name = 'shift3', shape = shape,
-                                    initializer = tf.keras.initializers.zeros(),
-                                   trainable = True)
-        
+    
         self.offset = tf.Variable(0.001, dtype = 'float32', trainable=False)
-        self.landa = tf.Variable(0.001, dtype = 'float32', trainable=True, name='landa',
-                                 constraint = lambda t:tf.clip_by_value(t,0,1))
-        
+
         #batch_moving_mean
         self.moving_Bmean = self.add_weight(name = 'moving_Bmean', shape = bn_shape,
                                             initializer = tf.keras.initializers.Zeros(),
@@ -361,16 +100,13 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
         self.moving_Fmean.assign_add(feature_mean)
         self.moving_Fvar.assign_add(feature_var)
         
-   
-        output1 =   (((self.gamma1/ feature_std) * inputs) - ((self.gamma1/ feature_std) * (feature_mean + batch_mean )))+ self.beta1 #
-        output2 =   (((self.gamma1/ batch_std) * inputs) - ((self.gamma1/batch_std) * ( feature_mean + batch_mean)))+ self.beta1     
-       
-        
-        #output1 = tf.add(tf.multiply(tf.divide(tf.subtract(inputs, batch_mean),batch_std) , self.gamma1), self.beta1)
-        #output2 = tf.add(tf.multiply(tf.divide(tf.subtract(inputs, feature_mean),feature_std) , self.gamma1), self.beta1)
+     
+        x_f =   (inputs - feature_mean) / feature_std 
+        x_b = (inputs - batch_mean) / batch_std
+        numerator =  (x_f * ((1 / self.batch_size) - .0001)) + (x_b * (1- ((1 / self.batch_size) + .0001)))
+        x_beta  =  numerator / tf.math.sqrt(self.dk) 
 
-        output =  (output1 * self.landa) + ( output2 * (1 - self.landa)  ) 
-        output =   (self.gamma3 * (output))+ self.beta3   
+        output =   (self.gamma1 * (x_beta))+ self.beta1
         
         return output
     
@@ -378,7 +114,7 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
     
     def update_mm_mv(self):
         """
-        Updating mBm and mBv, mFm and mFv at the end of epoch
+        Updating batch_moving_mean and batch_moving_var, feature_moving_mean and feature_moving_var at the end of epoch
         """        
         self.moving_Bmean.assign(tf.cond(tf.greater(self.batch_count,0), 
                                         lambda: tf.divide(self.moving_Bmean,self.batch_count), lambda: self.moving_Bmean,
@@ -404,6 +140,7 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
         
         
     def bn_inference(self, inputs):
+
         batch_mean , batch_std = 0, 0
         feature_mean , feature_std = 0, 0
 
@@ -443,15 +180,14 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
             feature_mean, _ = tf.nn.moments(inputs, axes = [-1], keepdims=True)
             feature_std = tf.math.sqrt(tf.add(self.moving_Fvar, self.offset))
 
-        output1 =   (((self.gamma1/  feature_std ) * inputs)) - ((self.gamma1/  feature_std) *  (feature_mean + batch_mean ))+ self.beta1
-        output2 =   (((self.gamma1/ batch_std  ) * inputs)) - ((self.gamma1/ batch_std) * ( feature_mean + batch_mean) )+ self.beta1
-        
 
-        #output1 = tf.add(tf.multiply(tf.divide(tf.subtract(inputs, batch_mean),batch_std) , self.gamma1), self.beta1)
-        #output2 = tf.add(tf.multiply(tf.divide(tf.subtract(inputs, feature_mean),feature_std) , self.gamma1), self.beta1)
-        
-        output =  (output1 * self.landa) + (output2 * (1 - self.landa)) 
-        output =   (self.gamma3 * output )+ self.beta3   
+               
+        x_f =   (inputs - feature_mean) / feature_std 
+        x_b = (inputs - batch_mean) / batch_std
+        numerator =  (x_f * ((1 / self.batch_size) - .0001)) + (x_b * (1- ((1 / self.batch_size) + .0001)))
+        x_beta  =  numerator / tf.math.sqrt(self.dk) 
+
+        output =   (self.gamma1 * (x_beta))+ self.beta1
         
         return output
         
@@ -465,12 +201,12 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
 
     def call(self, inputs, training):    
         
-        return tf.cond(tf.equal(training, True, name='train_or_eval'),
+        return tf.cond(tf.equal(training, True, name='train'),
                        lambda: self.bn_training(inputs), lambda: self.bn_inference(inputs),
                        name = 'call_func') 
 
     def get_config(self):
-        config = super(custom_BLN_Layer, self).get_config()
+        config = super(bln_layer, self).get_config()
         config.update({'stateful': self.stateful})
         config.update({'self.batchsize': self.batchsize})
         config.update({'batch_moving_mean': self.batch_moving_mean})
@@ -480,4 +216,36 @@ class custom_BLN_Layer(tf.keras.layers.Layer):
         
         
         return config
-              
+
+
+#####################################################################################################################   
+class dense_layer(tf.keras.layers.Layer):
+    '''
+    Creating Custom Dense Layer
+    '''
+    def __init__(self, units, random_seed, **kwargs):
+        
+        super(dense_layer, self).__init__(**kwargs)
+        self.units =  units
+        self.random_seed =  random_seed
+        
+    def build(self, input_shape):
+        self.kernel_weights = self.add_weight(name = 'weights', shape = (input_shape[-1], self.units),
+                                              dtype = self.dtype, 
+                                              initializer=tf.keras.initializers.Orthogonal(gain=1, seed=self.random_seed),
+                                              trainable = True)
+        
+        self.bias = self.add_weight(name = 'bias', shape = (self.units,), dtype = self.dtype,
+                                   initializer=tf.keras.initializers.zeros(), trainable = True)
+        
+    def call(self, inputs):
+        
+        return tf.add(tf.matmul(inputs, self.kernel_weights), self.bias)
+    
+    def get_config(self):
+        
+        config = super(dense_layer, self).get_config()
+        config.update({'units': self.units})
+        config.update({'random_seed': self.random_seed})
+        
+        return config
