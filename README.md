@@ -1,5 +1,16 @@
-# Batch Layer Normalization
-# A new normalization layer for CNNs and RNNs
+
+
+
+
+
+    
+ <h1  style="display: inline-block;" align = "center"> Batch Layer Normalization</h1>
+<h1 align = "center"> A new normalization layer for CNNs and RNNs </h1>
+  
+
+
+
+
 
 This study introduces a new normalization layer termed Batch Layer Normalization
 (BLN) to reduce the problem of internal covariate shift in deep learning layers.
