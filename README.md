@@ -41,7 +41,7 @@ model_history =  model.fit(train_dataset, epochs = epochs, verbose = 1,
                            
 
 ```
-Use a grid-search algorithm or other hyper-parameter tuning techniques to find the best configuration of statistics among the possible configurations with lower loss and higher accuracy.
+Use a grid-search algorithm or other hyper-parameter tuning techniques to find the best configuration of statistics <b>(batch_moving_mean, batch_moving_var, feature_moving_mean, feature_moving_var)</b> among the possible configurations with lower loss and higher accuracy.
 
 
 ```
