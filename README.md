@@ -49,4 +49,4 @@ model_history =  model.fit(train_dataset, epochs = epochs, verbose = 1,
 (<b> batch_moving_mean = {True or False},  batch_moving_var = {True or False},  feature_moving_mean = {True or False},  feature_moving_var = {True or False}</b>) 
 among the possible configurations with lower loss and higher accuracy.
 
-* for more infromation see [the example](https://github.com/A2Amir/Batch-Layer-Normalization/blob/main/Cifar10%20(With%20the%20whole%20training%20set%20and%20batch%20size%2025).ipynb).
+* For more infromation see [the example](https://github.com/A2Amir/Batch-Layer-Normalization/blob/main/Cifar10%20(With%20the%20whole%20training%20set%20and%20batch%20size%2025).ipynb).
