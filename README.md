@@ -30,21 +30,21 @@ Verify that the new environment was installed correctly
 from helpers.bln_layer import  bln_layer
 from helpers.bln_callback import bln_callback 
 
-
+# as a normalization layer
 x = bln_layer(stateful = True, batchsize= batch_size, name = 'bn1', 
               batch_moving_mean = False, batch_moving_var = False,
               feature_moving_mean = False, feature_moving_var = False)(x) 
     
 
 
-
+# add Callback for resetting moving mean and variances at the end of each epoch
 model_history =  model.fit(train_dataset, epochs = epochs, verbose = 1,
-                           validation_data = valid_dataset, callbacks = [bln_layer_cb], shuffle = True)
+                           validation_data = valid_dataset, callbacks = [bln_callback()], shuffle = True)
                            
                            
                            
 
 ```
 Use a grid-search algorithm or other hyper-parameter tuning techniques to find the best configuration of statistics 
-(<b> batch_moving_mean = {True or False}, batch_moving_var = {True or False}, feature_moving_mean = {True or False}, feature_moving_var = {True or False}</b>) 
+(<b> batch_moving_mean = {True or False},  batch_moving_var = {True or False},  feature_moving_mean = {True or False},  feature_moving_var = {True or False}</b>) 
 among the possible configurations with lower loss and higher accuracy.
