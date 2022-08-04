@@ -33,7 +33,7 @@ x = bln_layer(stateful = True, batchsize= batch_size, name = 'bn1',
     
 
 
-# add Callback for resetting moving mean and variances at the end of each epoch
+# add Callback for resetting moving means and variances at the end of each epoch
 model_history =  model.fit(train_dataset, epochs = epochs, verbose = 1,
                            validation_data = valid_dataset, callbacks = [bln_callback()], shuffle = True)
                            
