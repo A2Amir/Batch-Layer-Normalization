@@ -49,6 +49,6 @@ Use a grid-search algorithm or other hyper-parameter tuning techniques to find t
 
             feature_moving_mean = {True or False},  feature_moving_var = {True or False} 
 ```   
-
+Use the best configuration for the rest of the training or fine-tuning and network testing.
 
 * For more infromation see [the example](https://github.com/A2Amir/Batch-Layer-Normalization/blob/main/Cifar10%20(With%20the%20whole%20training%20set%20and%20batch%20size%2025).ipynb).
